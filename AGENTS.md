@@ -96,3 +96,11 @@ TDLib int64 JSON values (especially chatPosition.order) are decimal strings;
 preserve the shared numeric parser and string-order regression tests. Bubble
 sender headers and forwarding origins are separate; do not substitute a
 forwarded origin for the actual sender or resolve hidden forwarding identities.
+
+## Beta publication rule
+
+Publish new builds for the feature currently being developed as beta versions
+(GitHub pre-releases, with a beta label/tag). Only publish or promote a build to
+a stable release without the beta tag after the user explicitly confirms that
+the feature works correctly. Successful builds, automated tests and emulator
+checks do not substitute for that confirmation. See docs/UPDATES.md.

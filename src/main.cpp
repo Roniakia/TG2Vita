@@ -222,6 +222,8 @@ int main() {
                             if ((pressed & SCE_CTRL_UP) && nav.selected > 0) select_page(nav.selected-1);
                             if ((pressed & SCE_CTRL_DOWN) && nav.selected+1 < items.size()) select_page(nav.selected+1);
                         }
+                        if (nav.updates && (pressed & (SCE_CTRL_LEFT|SCE_CTRL_RIGHT)) && !updater.state().busy)
+                            updater.set_channel(updater.state().channel==update::Channel::Stable ? update::Channel::Beta : update::Channel::Stable);
                         if (pressed & SCE_CTRL_CIRCLE) {
                             if (nav.updates && updater.state().busy) updater.cancel();
                             else if (nav.back()) auth->leave_chat();

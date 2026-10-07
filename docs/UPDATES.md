@@ -23,7 +23,7 @@ The installed promoterutil.h was checked against that reference.
 
 ## Release contract
 
-- CMake project version is canonical: strict X.Y.Z; tags use vX.Y.Z.
+- CMake project version is canonical: strict X.Y.Z; stable tags use vX.Y.Z; beta tags use vX.Y.Z-beta.N.
 - Publish a stable GitHub Release with an asset named `vita_tg.vpk`.
 - The GitHub asset must supply a lowercase `sha256:` digest and its exact size.
   The updater rejects absent digests, malformed metadata and packages over 64 MiB.
@@ -37,6 +37,22 @@ The installed promoterutil.h was checked against that reference.
   repository maintainer account. There is no independent release signing key.
 
 ## Publish future builds
+
+New builds of the feature under development must be published as **beta**
+versions, with a beta label/tag and GitHub **Pre-release** selected. Publish or
+promote a stable release without the beta tag only after the user explicitly
+confirms the feature works correctly. Passing local checks is not confirmation.
+In App updates, Left/Right selects Stable or Beta. Stable is the default; Beta
+includes stable releases and GitHub pre-releases tagged `vX.Y.Z-beta.N` (N starts
+at 1). The saved choice is used by manual checks and the next startup check.
+Changing the channel clears the old offer and immediately checks the chosen
+channel. Stable ranks above betas of the same version; no channel switch causes
+a downgrade. Beta checks examine up to 30 recent releases and select the highest
+compatible version. The existing HTTPS, size and SHA-256 rules apply to both.
+
+The publication script reads the version suffix from CMake and marks beta
+builds as GitHub pre-releases. After user acceptance, clear the suffix and set
+`VITA_TG_STABLE_CONFIRMED=yes` when publishing a stable build.
 
 Builds currently depend on the validated local macOS SDK/TDLib wrappers. GitHub
 Actions cross-compilation is not configured or claimed reproducible on Linux.

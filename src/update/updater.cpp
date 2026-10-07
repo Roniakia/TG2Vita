@@ -87,6 +87,8 @@ bool fetch(const std::string& url,Transfer& transfer,long& status,std::string& e
 }
 }
 Updater::Updater() {
+    FILE* preference=std::fopen("ux0:data/vita-tg/update-channel","rb");
+    if (preference) { if(std::fgetc(preference)=='B') state_.channel=Channel::Beta; std::fclose(preference); }
     // Do not depend on TDLib having already seeded OpenSSL, especially before login.
     std::array<unsigned char,64> entropy{};
     if (sceKernelGetRandomNumber(entropy.data(),entropy.size())<0) return;
@@ -100,6 +102,20 @@ State Updater::state() const { std::lock_guard<std::mutex> lock(mutex_); return 
 void Updater::finish(const std::string& status,const std::string& detail,bool available) {
     std::lock_guard<std::mutex> lock(mutex_); state_.status=status; state_.detail=detail; state_.busy=false; state_.available=available;
 }
+void Updater::set_channel(Channel channel) {
+    cancel();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        state_=State{}; state_.channel=channel; release_=Release{};
+    }
+    sceIoMkdir("ux0:data/vita-tg",0777);
+    FILE* file=std::fopen("ux0:data/vita-tg/update-channel","wb");
+    if (!file) { finish("Cannot save update channel"); return; }
+    const bool saved=std::fputc(channel==Channel::Beta ? 'B' : 'S',file)!=EOF;
+    const bool closed=std::fclose(file)==0;
+    if(!saved || !closed) { finish("Cannot save update channel"); return; }
+    check();
+}
 void Updater::check() { run(false); }
 void Updater::download() { if (state().available) run(true); }
 void Updater::run(bool downloading) {
@@ -108,15 +124,16 @@ void Updater::run(bool downloading) {
     if (!initialized_) { finish("Updater initialization failed"); return; }
     cancel_=false;
     { std::lock_guard<std::mutex> lock(mutex_); state_.busy=true; state_.percent=0; state_.status=downloading ? "Downloading update..." : "Checking GitHub Releases..."; state_.detail.clear(); }
-    worker_=std::thread([this,downloading] {
+    const auto channel=state().channel;
+    worker_=std::thread([this,downloading,channel] {
         Transfer t{cancel_,[this](unsigned p) { std::lock_guard<std::mutex> lock(mutex_); state_.percent=p; },{},nullptr,1024*1024,0,{}};
         long status=0; std::string transport_error;
         if (!downloading) {
-            if (!fetch("https://api.github.com/repos/"+std::string(repository)+"/releases/latest",t,status,transport_error)) {
+            if (!fetch("https://api.github.com/repos/"+std::string(repository)+(channel==Channel::Beta ? "/releases?per_page=30" : "/releases/latest"),t,status,transport_error)) {
                 finish(cancel_ ? "Update check canceled" : status==404 ? "No public release available" : "Update check failed",status ? "HTTP "+std::to_string(status) : transport_error); return;
             }
             Release r; std::string error;
-            if (!parse_release(t.body,VITA_TG_VERSION,r,error)) { finish(error); return; }
+            if (!(channel==Channel::Beta ? parse_releases(t.body,VITA_TG_VERSION,r,error) : parse_release(t.body,VITA_TG_VERSION,r,error))) { finish(error); return; }
             release_=std::move(r); finish("Version "+release_.version+" available","Cross: download VPK",true); return;
         }
         sceIoMkdir("ux0:download",0777);

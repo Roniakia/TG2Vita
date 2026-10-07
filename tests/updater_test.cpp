@@ -50,6 +50,7 @@ CURLcode curl_easy_perform(CURL* h) {
     if (slow) {for(int i=0;i<100;++i) {if(c.progress(c.progress_data,100,0,0,0)) return CURLE_ABORTED_BY_CALLBACK;std::this_thread::sleep_for(std::chrono::milliseconds(2));}}
     if(response!=CURLE_OK) return response;
     c.http=200;auto body=c.url.find("api.github.com")!=std::string::npos ? metadata : payload;
+    if(c.url.find("per_page=30")!=std::string::npos) body="["+body+"]";
     if(c.write(body.data(),1,body.size(),c.data)!=body.size()) return CURLE_WRITE_ERROR;
     return CURLE_OK;
 }
@@ -61,6 +62,9 @@ int main() {
     update::Updater u;u.check();wait(u);assert(u.state().available);
     assert(numbers[CURLOPT_SSL_VERIFYPEER]==1 && numbers[CURLOPT_SSL_VERIFYHOST]==2);
     assert(numbers[CURLOPT_IPRESOLVE]==CURL_IPRESOLVE_V4 && numbers[CURLOPT_HTTP_VERSION]==CURL_HTTP_VERSION_1_1);
+    u.set_channel(update::Channel::Beta);wait(u);assert(u.state().available && u.state().channel==update::Channel::Beta);
+    { update::Updater restored; assert(restored.state().channel==update::Channel::Beta); }
+    u.set_channel(update::Channel::Stable);wait(u);assert(u.state().available);
     u.download();wait(u);assert(u.state().status=="Update downloaded");
     const std::string path="ux0:download/TG2Vita-v99.0.0.vpk";
     std::ifstream file(path);std::string saved((std::istreambuf_iterator<char>(file)),{});assert(saved==payload);

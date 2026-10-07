@@ -310,10 +310,11 @@ void draw(vita2d_pgf* font, vita2d_texture* icon, const Navigation& nav, const t
         bubbles(font,nav,auth,conversation);
     } else if (nav.updates) {
         text(font,content_x,183,"Installed: " VITA_TG_VERSION,muted);
-        paragraph(font,225,update.status,white,2);
+        text(font,content_x,209,update.channel==update::Channel::Beta ? "Update channel: Beta (includes stable)" : "Update channel: Stable",accent,0.9f);
+        paragraph(font,245,update.status,white,2);
         paragraph(font,300,update.detail,muted,4);
         if (update.busy) text(font,content_x,410,(std::to_string(update.percent)+"%   Circle: cancel").c_str(),accent,0.9f);
-        else text(font,content_x,440,"Cross: check / download   Circle: back",accent,0.9f);
+        else text(font,content_x,440,"Left/Right: channel   Cross: check / download   Circle: back",accent,0.9f);
     } else if (nav.about) {
         paragraph(font,183,"An independent client using the Telegram API.",white);
         text(font,content_x,292,"Vita TG " VITA_TG_VERSION,muted);

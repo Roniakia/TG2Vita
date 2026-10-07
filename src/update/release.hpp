@@ -2,6 +2,7 @@
 #include <jansson.h>
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 
 namespace update {
@@ -22,21 +23,42 @@ inline bool version(const std::string& text, std::array<unsigned,3>& out) {
     }
     return pos==text.size();
 }
+enum class Channel { Stable, Beta };
+struct Version {
+    std::array<unsigned,3> core{};
+    unsigned beta=0;
+    bool prerelease=false;
+    bool operator<(const Version& other) const {
+        if (core!=other.core) return core<other.core;
+        if (prerelease!=other.prerelease) return prerelease;
+        return beta<other.beta;
+    }
+};
+inline bool release_version(const std::string& text,Version& out) {
+    const auto suffix=text.find("-beta.");
+    if (suffix==std::string::npos) return version(text,out.core);
+    if (!version(text.substr(0,suffix),out.core)) return false;
+    const auto number=text.substr(suffix+6);
+    if (number.empty() || number[0]=='0' || number.size()>4) return false;
+    for (char c:number) { if(c<'0' || c>'9') return false; out.beta=out.beta*10+unsigned(c-'0'); }
+    out.prerelease=true; return true;
+}
 inline std::string field(json_t* object,const char* name) {
     const char* value=json_string_value(json_object_get(object,name));
     return value ? value : "";
 }
-inline bool parse_release(const std::string& body,const std::string& current,Release& release,std::string& error) {
+inline bool parse_release(const std::string& body,const std::string& current,Release& release,std::string& error,Channel channel=Channel::Stable) {
     json_error_t e{}; json_t* root=json_loadb(body.data(),body.size(),JSON_REJECT_DUPLICATES,&e);
     if (!root) { error="Invalid release response"; return false; }
     struct Guard { json_t* p; ~Guard(){json_decref(p);} } guard{root};
-    std::array<unsigned,3> latest{},installed{};
+    Version latest{},installed{};
     const auto tag=field(root,"tag_name");
     if (!json_is_object(root) || !json_is_false(json_object_get(root,"draft")) ||
-        !json_is_false(json_object_get(root,"prerelease")) || !version(tag,latest) || !version(current,installed)) {
+        !(json_is_false(json_object_get(root,"prerelease")) || (channel==Channel::Beta && json_is_true(json_object_get(root,"prerelease")))) || !release_version(tag,latest) || !release_version(current,installed) ||
+        latest.prerelease!=json_is_true(json_object_get(root,"prerelease"))) {
         error="Unsupported release metadata"; return false;
     }
-    if (latest<=installed) { error="You have the latest version"; return false; }
+    if (!(installed<latest)) { error="You have the latest version"; return false; }
     json_t* assets=json_object_get(root,"assets");
     if (!json_is_array(assets)) { error="Release has no VPK"; return false; }
     const std::string prefix="https://github.com/"+std::string(repository)+"/releases/download/"+tag+"/";
@@ -54,4 +76,18 @@ inline bool parse_release(const std::string& body,const std::string& current,Rel
     }
     error="Release needs a valid VPK with SHA-256 digest"; return false;
 }
+inline bool parse_releases(const std::string& body,const std::string& current,Release& release,std::string& error) {
+    json_error_t e{}; json_t* root=json_loadb(body.data(),body.size(),JSON_REJECT_DUPLICATES,&e);
+    if (!json_is_array(root)) { if(root) json_decref(root); error="Invalid release list"; return false; }
+    bool found=false; Version best{}; std::size_t i; json_t* item;
+    json_array_foreach(root,i,item) {
+        char* text=json_dumps(item,JSON_COMPACT); if(!text) continue;
+        Release candidate; std::string ignored;
+        const bool valid=parse_release(text,current,candidate,ignored,Channel::Beta); free(text);
+        Version v{};
+        if(valid && release_version(candidate.version,v) && (!found || best<v)) { release=std::move(candidate);best=v;found=true; }
+    }
+    json_decref(root); if(!found) error="No newer compatible release available"; return found;
+}
+
 }

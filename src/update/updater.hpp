@@ -4,13 +4,14 @@
 #include <mutex>
 #include <thread>
 namespace update {
-struct State { std::string status="Cross: check for updates", detail; bool busy=false, available=false; unsigned percent=0; };
+struct State { std::string status="Cross: check for updates", detail; bool busy=false, available=false; unsigned percent=0; Channel channel=Channel::Stable; };
 class Updater {
 public:
     Updater();
     ~Updater();
     State state() const;
     void check();
+    void set_channel(Channel channel);
     void download();
     void cancel();
 private:

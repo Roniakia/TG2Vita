@@ -614,3 +614,22 @@ reports curl codes; certificate verification stays enabled. Host mocked transpor
 tests cover options, verified downloads, rejection and cancellation. Hardware
 resolution remains unconfirmed. A separate tests/vita-updates diagnostic title
 writes only public updater results; its emulator runtime has not been verified.
+
+## User-confirmed beta publication policy — 2026-10-07
+
+The user requires new builds of the feature under development to be uploaded as
+beta versions until they explicitly confirm that the feature is okay. Mark these
+as GitHub pre-releases and use a beta label/tag. Only after that confirmation
+create or promote the corresponding stable release without the beta tag. Build,
+test or emulator success alone does not authorize stable publication. This rule
+applies to future publications; existing releases were not changed by this
+documentation update. The current updater selects stable releases only.
+
+## Update channels — 2026-10-07
+
+0.6.2-beta.1 adds a persistent Stable/Beta setting in App updates, changed with
+Left/Right. Stable is default. Beta includes stable plus numbered beta pre-releases
+and selects the highest valid version among 30 recent GitHub releases. Stable
+outranks beta at the same core version; switching never downgrades. Both manual
+and startup checks use the saved channel. Beta publication is now the default
+in CMake and the release helper; stable publication requires user acceptance.
