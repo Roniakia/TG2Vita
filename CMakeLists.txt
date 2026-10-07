@@ -12,9 +12,10 @@ set(VITA_PACK_VPK "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vita-host-tool.sh;vita-pa
 set(VITA_APP_NAME "Vita TG")
 set(VITA_TITLEID "VTGC00001" CACHE STRING "Development title ID (nine characters)")
 set(VITA_VERSION "00.62")
-set(VITA_TG_VERSION_SUFFIX "-beta.2" CACHE STRING "Release version suffix; empty after user acceptance")
+set(VITA_TG_VERSION_SUFFIX "-beta.3" CACHE STRING "Release version suffix; empty after user acceptance")
 configure_file(src/version.hpp.in generated/version.hpp @ONLY)
 include(cmake/tdlib.cmake)
+include(cmake/curl-vita.cmake)
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.deps/jansson-2.15.1/CMakeLists.txt")
   message(FATAL_ERROR "Prepare Jansson with scripts/setup-jansson.sh first")
 endif()
@@ -24,7 +25,7 @@ set(JANSSON_WITHOUT_TESTS ON CACHE BOOL "" FORCE)
 set(JANSSON_INSTALL OFF CACHE BOOL "" FORCE)
 add_subdirectory(.deps/jansson-2.15.1 build-jansson)
 set_target_properties(jansson PROPERTIES POSITION_INDEPENDENT_CODE OFF)
-add_executable(vita_tg src/update/updater.cpp src/main.cpp src/telegram/auth.cpp src/telegram/credentials.cpp src/telegram/app_credentials.cpp src/telegram/ime.cpp src/ui/login_form.cpp src/ui/app_view.cpp src/ui/media_viewer.cpp src/ui/media_image.cpp)
+add_executable(vita_tg src/compat/curl_fcntl.cpp src/update/updater.cpp src/main.cpp src/telegram/auth.cpp src/telegram/credentials.cpp src/telegram/app_credentials.cpp src/telegram/ime.cpp src/ui/login_form.cpp src/ui/app_view.cpp src/ui/media_viewer.cpp src/ui/media_image.cpp)
 target_include_directories(vita_tg PRIVATE src)
 target_compile_features(vita_tg PRIVATE cxx_std_17)
 target_compile_options(vita_tg PRIVATE -Wall -Wextra -Wpedantic)
@@ -33,7 +34,7 @@ target_link_libraries(vita_tg PRIVATE
   vita_tdlib jansson vita2d SceDisplay_stub SceGxm_stub SceSysmodule_stub SceCtrl_stub
   SceAppUtil_stub SceNet_stub SceNetCtl_stub ScePgf_stub SceCommonDialog_stub SceAppMgr_stub SceTouch_stub
   SceIofilemgr_stub SceKernelThreadMgr_stub SceKernelDmacMgr_stub
-  SceAvPlayer_stub SceAudio_stub png jpeg curl ssl crypto zstd z m)
+  SceAvPlayer_stub SceAudio_stub png jpeg vita_tg_curl ssl crypto zstd z m)
 vita_create_self(vita_tg.self vita_tg)
 vita_create_vpk(vita_tg.vpk ${VITA_TITLEID} vita_tg.self
   VERSION ${VITA_VERSION} NAME ${VITA_APP_NAME}

@@ -640,3 +640,14 @@ The user reports curl 7 while Telegram chats load normally in the same session.
 The prior transport changes did not establish resolution. 0.6.2-beta.2 adds
 CURLINFO_OS_ERRNO and CURLOPT_ERRORBUFFER to surface the actual connection
 failure. This is a diagnostic build, not a confirmed fix; keep TLS verification.
+
+## Curl CLOEXEC compatibility — 2026-10-07
+
+The user supplied detailed failure "CLOEXEC: function not implemented". Installed
+libc disassembly confirms fcntl always returns ENOSYS, and installed curl calls
+F_SETFD/FD_CLOEXEC before TCP connection. 0.6.2-beta.3 uses objcopy on a build-local
+curl archive to rename only its fcntl references. The compatibility function
+accepts that operation on valid sockets (getsockopt SO_TYPE); other commands
+fail. Vita has no exec descriptor inheritance. Curl nonblocking remains native
+SO_NONBLOCK; TLS verification is preserved. No installed SDK modification or
+global fcntl override. Hardware resolution still needs user confirmation.
