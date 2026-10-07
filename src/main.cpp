@@ -113,6 +113,7 @@ int main() {
             else if (selected==1) auth->refresh_contacts();
             else if (selected==2) { nav.history = true; auth->open_saved_messages(); }
         };
+        if (network.init()) updater.check();
         connect();
         auto previous_frame=std::chrono::steady_clock::now();
         while (!exiting) {
@@ -245,6 +246,9 @@ int main() {
                             else if (nav.selected == 0) auth->refresh_chats();
                             else if (nav.selected == 1) auth->refresh_contacts();
                         }
+                    }
+                    if (ready && (pressed & SCE_CTRL_TRIANGLE) && updater.state().available) {
+                        select_page(3); nav.content=true; nav.row=1; nav.updates=true;
                     }
                     if (auth->stage() != telegram::AuthStage::Ready && (pressed & SCE_CTRL_CROSS)) {
                         if (auth->stage() == telegram::AuthStage::MissingConfig || auth->stage() == telegram::AuthStage::Failed || auth->stage() == telegram::AuthStage::Closed) {

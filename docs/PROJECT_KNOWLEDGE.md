@@ -603,3 +603,14 @@ implemented. See [updates](UPDATES.md) for API research, release contract,
 publication helper, validation and hardware limitations. Version strings in UI,
 TDLib and updater now come from CMake's generated version header. Hardware baseline
 remains 0.3.1; this release requires hardware updater/network verification.
+
+## Startup update checks — 2026-10-07
+
+Version 0.6.1 checks GitHub Releases once at startup on a worker and shows an
+availability banner (Triangle opens App updates after sign-in). The user reported
+a generic connection failure in 0.6.0. Transport now loads the packaged CA bundle
+into memory, independently seeds OpenSSL via Vita RNG, selects IPv4/HTTP 1.1 and
+reports curl codes; certificate verification stays enabled. Host mocked transport
+tests cover options, verified downloads, rejection and cancellation. Hardware
+resolution remains unconfirmed. A separate tests/vita-updates diagnostic title
+writes only public updater results; its emulator runtime has not been verified.

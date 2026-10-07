@@ -2,12 +2,15 @@
 
 Source and public VPK releases: https://github.com/Roniakia/TG2Vita
 
-Version 0.6.0 adds Settings → App updates. Cross checks the latest published
+Version 0.6.1 checks once in the background when the app opens. A banner
+notifies you when a newer version is available; Triangle opens App updates after
+sign-in. Settings → App updates also remains available. Cross checks the latest published
 non-prerelease release; another Cross downloads a newer version. The verified
 file is saved as `ux0:download/TG2Vita-vX.Y.Z.vpk`. Exit with Start and install
 that file in VitaShell. Installation retains the app's separate data/session
 folder. Circle cancels a transfer; exiting joins the updater before network
-shutdown. Checking is manual and does not require a GitHub account/token on Vita.
+shutdown. Checking does not require a GitHub account/token on Vita. Startup failures stay
+on the update page and do not interrupt sign-in.
 The repository and releases must be publicly readable for device updates.
 
 Automatic VPK installation is deferred. VitaSDK's promoter functions accept an
@@ -57,6 +60,11 @@ user; it never contains phone/code/password/session keys.
 ## Validation
 
 Host tests validate versions, stable-release selection, asset URL/size/digest
-requirements and malformed metadata. Release 0.6.0 builds with the installed SDK;
+requirements and malformed metadata. `scripts/test-updater.sh` also exercises
+the actual updater with mocked transport: TLS options, downloads, hash rejection,
+cancellation, missing certificates and transport/option errors. Version 0.6.1
+loads the CA bundle into memory, seeds OpenSSL from the Vita RNG independently
+of login, selects IPv4/HTTP 1.1 and reports curl error codes. The original device
+failure is not yet diagnosed or confirmed fixed. Release 0.6.1 builds with the installed SDK;
 archive, indexed artwork and relative-veneer checks pass. Hardware HTTPS, GitHub
 redirects, cancellation and manual installation still require a real-Vita test.

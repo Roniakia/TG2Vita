@@ -18,6 +18,7 @@ constexpr auto focus = rgba(37,62,80);
 constexpr auto avatar_color = rgba(44,87,112);
 constexpr auto outgoing = rgba(35,88,118);
 constexpr int screen_width = 960, screen_height = 544;
+constexpr int update_banner_x = 322, update_banner_y = 77, update_banner_width = 606, update_banner_height = 30;
 constexpr int header_height = 72, sidebar_width = 300, footer_top = 488;
 constexpr int content_x = 330, content_width = 590;
 constexpr int sidebar_top = 133, sidebar_step = 70, sidebar_row_height = 58;

@@ -272,6 +272,10 @@ void draw(vita2d_pgf* font, vita2d_texture* icon, const Navigation& nav, const t
     if (ready) clipped(font,24,427,auth.account_name(),muted,0.8f,260);
     text(font,24,456,auth.test_dc() ? "TEST SERVERS" : "Telegram production",muted,0.75f);
     clipped(font,content_x,122,ready ? (nav.history ? auth.history_title().c_str() : nav.updates ? "App updates" : nav.about ? "About Vita TG" : items[selected]) : "Sign in",white,1.1f,(content_width-10));
+    if (update.available && !nav.updates) {
+        vita2d_draw_rectangle(update_banner_x,update_banner_y,update_banner_width,update_banner_height,focus);
+        clipped(font,update_banner_x+8,update_banner_y+21,update.status+(ready ? " - Triangle: open" : " - see Settings after sign-in"),success,0.75f,update_banner_width-16);
+    }
     if (!ready) {
             const char* steps[]={"1  Phone","2  Code","3  2FA"};
             for (int i=0;i<3;++i) {

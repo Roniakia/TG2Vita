@@ -1,3 +1,5 @@
-Adds Settings → App updates. Check the latest public GitHub release and download a newer VPK to ux0:download/ for installation with VitaShell. Downloads use verified HTTPS, bounded sizes and SHA-256 checks. Circle cancels a transfer; Start exits the app.
+Checks for updates automatically in the background when the app opens. A banner announces a newer version; Triangle opens the update page after sign-in. Downloads still go to ux0:download/ for installation with VitaShell.
 
-This release also contains the 0.5.1 native video-player lifecycle correction. Message sending remains unimplemented. Update networking and native video playback require real-Vita validation; the user-accepted hardware baseline is 0.3.1.
+Improves Vita HTTPS setup with an in-memory CA bundle, independent OpenSSL random seeding, and IPv4/HTTP 1.1. Failed checks now show a curl error code. TLS verification remains enabled. The reported hardware connection failure still needs a real-Vita retest.
+
+Host updater transport and release-parser tests pass, along with the build and package checks. Message sending remains unimplemented.

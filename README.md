@@ -153,6 +153,7 @@ resized and packed from [v17.0.1](https://github.com/jdecked/twemoji/tree/v17.0.
 ## Updates and releases
 
 Source and VPK builds: [TG2Vita on GitHub](https://github.com/Roniakia/TG2Vita).
-In version 0.6.0, open **Settings → App updates**, check with Cross, then press
-Cross to download a newer release to `ux0:download/`. Exit and install it with
+Version 0.6.1 checks automatically on startup and shows a banner for newer releases.
+Triangle opens the update page after sign-in. You can also open **Settings → App updates**,
+check with Cross, then press Cross to download a newer release to `ux0:download/`. Exit and install it with
 VitaShell. See [release workflow and update validation](docs/UPDATES.md).
