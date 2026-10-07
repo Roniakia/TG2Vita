@@ -51,10 +51,12 @@ bool fetch(const std::string& url,Transfer& transfer,long& status,std::string& e
     }
     if (certificates.empty()) { error="Packaged CA bundle cannot be read; reinstall VPK"; curl_easy_cleanup(curl); return false; }
     curl_blob bundle{const_cast<char*>(certificates.data()),certificates.size(),CURL_BLOB_NOCOPY};
+    char diagnostic[CURL_ERROR_SIZE]{};
     CURLcode options=CURLE_OK;
     auto option=[&](CURLoption name,auto value) {
         if (options==CURLE_OK) options=curl_easy_setopt(curl,name,value);
     };
+    option(CURLOPT_ERRORBUFFER,diagnostic);
     option(CURLOPT_CAINFO_BLOB,&bundle);
     option(CURLOPT_IPRESOLVE,static_cast<long>(CURL_IPRESOLVE_V4));
     option(CURLOPT_HTTP_VERSION,static_cast<long>(CURL_HTTP_VERSION_1_1));
@@ -81,7 +83,13 @@ bool fetch(const std::string& url,Transfer& transfer,long& status,std::string& e
     option(CURLOPT_XFERINFODATA,&transfer);
     const auto result=options==CURLE_OK ? curl_easy_perform(curl) : options;
     curl_easy_getinfo(curl,CURLINFO_RESPONSE_CODE,&status);
-    if (result!=CURLE_OK) error="curl "+std::to_string(result)+": "+curl_easy_strerror(result);
+    if (result!=CURLE_OK) {
+        long socket_error=0;
+        curl_easy_getinfo(curl,CURLINFO_OS_ERRNO,&socket_error);
+        error="curl "+std::to_string(result)+": "+curl_easy_strerror(result);
+        if(socket_error) error+=" (socket "+std::to_string(socket_error)+")";
+        if(diagnostic[0]) error+="\n"+std::string(diagnostic);
+    }
     curl_easy_cleanup(curl);
     return result==CURLE_OK && status==200;
 }
@@ -130,7 +138,7 @@ void Updater::run(bool downloading) {
         long status=0; std::string transport_error;
         if (!downloading) {
             if (!fetch("https://api.github.com/repos/"+std::string(repository)+(channel==Channel::Beta ? "/releases?per_page=30" : "/releases/latest"),t,status,transport_error)) {
-                finish(cancel_ ? "Update check canceled" : status==404 ? "No public release available" : "Update check failed",status ? "HTTP "+std::to_string(status) : transport_error); return;
+                finish(cancel_ ? "Update check canceled" : status==404 ? "No public release available" : "Update check failed",!transport_error.empty() ? transport_error : "HTTP "+std::to_string(status)); return;
             }
             Release r; std::string error;
             if (!(channel==Channel::Beta ? parse_releases(t.body,VITA_TG_VERSION,r,error) : parse_release(t.body,VITA_TG_VERSION,r,error))) { finish(error); return; }

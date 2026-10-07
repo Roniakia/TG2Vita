@@ -1,3 +1,3 @@
-Adds a saved Stable/Beta update channel in Settings → App updates. Left/Right changes the channel and checks it immediately; startup checks use your saved choice. Stable is the default. Beta includes stable releases and numbered beta builds.
+Diagnostic beta for the reported curl 7 updater connection failure. Failed checks now show the underlying socket error and curl connection details, while preserving certificate verification.
 
-Downloads remain verified and saved for installation with VitaShell. This beta awaits real-Vita feature acceptance.
+Please report the complete updater error text. Telegram works on the affected device, but the updater connection cause remains unconfirmed. Stable/Beta selection and automatic startup checks are retained.

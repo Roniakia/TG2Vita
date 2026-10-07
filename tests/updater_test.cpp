@@ -15,7 +15,7 @@
 #undef curl_easy_setopt
 #undef curl_easy_getinfo
 namespace {
-struct Handle { curl_write_callback write=nullptr; void* data=nullptr; curl_xferinfo_callback progress=nullptr; void* progress_data=nullptr; std::string url; long http=0; };
+struct Handle { curl_write_callback write=nullptr; void* data=nullptr; curl_xferinfo_callback progress=nullptr; void* progress_data=nullptr; std::string url; long http=0; char* diagnostic=nullptr; };
 std::string payload="verified test package",metadata;
 CURLcode response=CURLE_OK, option_failure=CURLE_OK;
 bool slow=false; unsigned requests=0;
@@ -34,6 +34,7 @@ CURLcode curl_easy_setopt(CURL* h,CURLoption name,...) {
     if(option_failure!=CURLE_OK) return option_failure;
     auto& c=*reinterpret_cast<Handle*>(h);va_list v;va_start(v,name);
     switch(name) {
+        case CURLOPT_ERRORBUFFER:c.diagnostic=va_arg(v,char*);break;
         case CURLOPT_URL:c.url=va_arg(v,const char*);break;
         case CURLOPT_WRITEFUNCTION:c.write=va_arg(v,curl_write_callback);break;
         case CURLOPT_WRITEDATA:c.data=va_arg(v,void*);break;
@@ -44,11 +45,11 @@ CURLcode curl_easy_setopt(CURL* h,CURLoption name,...) {
     }
     va_end(v);return CURLE_OK;
 }
-CURLcode curl_easy_getinfo(CURL* h,CURLINFO info,...) {assert(info==CURLINFO_RESPONSE_CODE);va_list v;va_start(v,info);*va_arg(v,long*)=reinterpret_cast<Handle*>(h)->http;va_end(v);return CURLE_OK;}
+CURLcode curl_easy_getinfo(CURL* h,CURLINFO info,...) {assert(info==CURLINFO_RESPONSE_CODE || info==CURLINFO_OS_ERRNO);va_list v;va_start(v,info);*va_arg(v,long*)=info==CURLINFO_OS_ERRNO ? 111 : reinterpret_cast<Handle*>(h)->http;va_end(v);return CURLE_OK;}
 CURLcode curl_easy_perform(CURL* h) {
     ++requests;auto& c=*reinterpret_cast<Handle*>(h);
     if (slow) {for(int i=0;i<100;++i) {if(c.progress(c.progress_data,100,0,0,0)) return CURLE_ABORTED_BY_CALLBACK;std::this_thread::sleep_for(std::chrono::milliseconds(2));}}
-    if(response!=CURLE_OK) return response;
+    if(response!=CURLE_OK) {std::strcpy(c.diagnostic,"Public test endpoint connection refused");return response;}
     c.http=200;auto body=c.url.find("api.github.com")!=std::string::npos ? metadata : payload;
     if(c.url.find("per_page=30")!=std::string::npos) body="["+body+"]";
     if(c.write(body.data(),1,body.size(),c.data)!=body.size()) return CURLE_WRITE_ERROR;
@@ -69,7 +70,7 @@ int main() {
     const std::string path="ux0:download/TG2Vita-v99.0.0.vpk";
     std::ifstream file(path);std::string saved((std::istreambuf_iterator<char>(file)),{});assert(saved==payload);
     u.check();wait(u);payload[0]='X';u.download();wait(u);assert(u.state().available && !std::filesystem::exists(path+".part"));
-    response=CURLE_COULDNT_RESOLVE_HOST;u.check();wait(u);assert(u.state().detail.find("curl 6:")!=std::string::npos && !u.state().available);
+    response=CURLE_COULDNT_CONNECT;u.check();wait(u);assert(u.state().detail.find("curl 7:")!=std::string::npos && u.state().detail.find("socket 111")!=std::string::npos && u.state().detail.find("connection refused")!=std::string::npos && !u.state().available);
     response=CURLE_OK;slow=true;u.check();u.cancel();assert(u.state().status=="Update check canceled");slow=false;
     option_failure=CURLE_UNKNOWN_OPTION;auto before=requests;u.check();wait(u);assert(requests==before && u.state().detail.find("curl 48:")!=std::string::npos);
     option_failure=CURLE_OK;std::filesystem::remove("app0:assets/certs/cacert.pem");u.check();wait(u);assert(requests==before && u.state().detail.find("CA bundle")!=std::string::npos);

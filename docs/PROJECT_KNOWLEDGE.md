@@ -633,3 +633,10 @@ and selects the highest valid version among 30 recent GitHub releases. Stable
 outranks beta at the same core version; switching never downgrades. Both manual
 and startup checks use the saved channel. Beta publication is now the default
 in CMake and the release helper; stable publication requires user acceptance.
+
+## Updater connection failure on hardware — 2026-10-07
+
+The user reports curl 7 while Telegram chats load normally in the same session.
+The prior transport changes did not establish resolution. 0.6.2-beta.2 adds
+CURLINFO_OS_ERRNO and CURLOPT_ERRORBUFFER to surface the actual connection
+failure. This is a diagnostic build, not a confirmed fix; keep TLS verification.
