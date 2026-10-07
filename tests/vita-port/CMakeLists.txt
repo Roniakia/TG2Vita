@@ -1,0 +1,18 @@
+cmake_minimum_required(VERSION 3.16)
+set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/vita-toolchain.cmake")
+project(vita_port_smoke LANGUAGES CXX)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+include("${VITASDK}/share/vita.cmake")
+set(VITA_MAKE_FSELF "${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/vita-host-tool.sh;vita-make-fself")
+set(VITA_PACK_VPK "${CMAKE_CURRENT_SOURCE_DIR}/../../scripts/vita-host-tool.sh;vita-pack-vpk")
+get_filename_component(APP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+set(TDLIB_BUILD_DIR "${APP_ROOT}/build/tdlib-clang" CACHE PATH "TDLib target build")
+add_executable(vita_port_smoke main.cpp)
+target_compile_features(vita_port_smoke PRIVATE cxx_std_17)
+target_link_options(vita_port_smoke PRIVATE -Wl,--gc-sections -Wl,--pic-veneer -Wl,-u,pthread_cancel -Wl,-u,pthread_once)
+target_include_directories(vita_port_smoke PRIVATE "${APP_ROOT}/.deps/tdlib/tdutils" "${TDLIB_BUILD_DIR}/tdutils" "${APP_ROOT}/ports/tdlib/include")
+target_link_libraries(vita_port_smoke PRIVATE "${TDLIB_BUILD_DIR}/tdutils/libtdutils.a" vita2d ssl crypto pthread
+  SceGxm_stub SceDisplay_stub SceSysmodule_stub ScePgf_stub SceCommonDialog_stub SceAppMgr_stub SceCtrl_stub
+  SceNet_stub SceNetCtl_stub SceIofilemgr_stub SceKernelThreadMgr_stub png jpeg z m)
+vita_create_self(vita_port_smoke.self vita_port_smoke)
+vita_create_vpk(vita_port_smoke.vpk VTGC00002 vita_port_smoke.self VERSION "00.10" NAME "Vita TG Port Tests")

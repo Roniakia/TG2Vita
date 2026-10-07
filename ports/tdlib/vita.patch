@@ -1,0 +1,354 @@
+diff --git a/CMake/TdSetUpCompiler.cmake b/CMake/TdSetUpCompiler.cmake
+index 8e84343..39cc5df 100644
+--- a/CMake/TdSetUpCompiler.cmake
++++ b/CMake/TdSetUpCompiler.cmake
+@@ -3,7 +3,11 @@
+ function(td_set_up_compiler)
+   set(CMAKE_EXPORT_COMPILE_COMMANDS 1 PARENT_SCOPE)
+ 
+-  set(CMAKE_POSITION_INDEPENDENT_CODE ON PARENT_SCOPE)
++  if(VITA)
++    set(CMAKE_POSITION_INDEPENDENT_CODE OFF PARENT_SCOPE)
++  else()
++    set(CMAKE_POSITION_INDEPENDENT_CODE ON PARENT_SCOPE)
++  endif()
+ 
+   include(illumos)
+ 
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7ebc948..0a50d64 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,10 @@
+ cmake_minimum_required(VERSION 3.10 FATAL_ERROR)
+ 
+ project(TDLib VERSION 1.8.67 LANGUAGES CXX C)
++if(VITA)
++  add_compile_definitions(PATH_MAX=1024)
++  include_directories("${TD_VITA_PORT_DIR}/include")
++endif()
+ 
+ if (NOT DEFINED CMAKE_MODULE_PATH)
+   set(CMAKE_MODULE_PATH "")
+diff --git a/sqlite/CMakeLists.txt b/sqlite/CMakeLists.txt
+index 3464dfd..9c48af5 100644
+--- a/sqlite/CMakeLists.txt
++++ b/sqlite/CMakeLists.txt
+@@ -80,3 +80,8 @@ if (TDSQLITE_ENABLE_INSTALL)
+     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+   )
+ endif()
++
++if(VITA)
++  target_sources(tdsqlite PRIVATE "${TD_VITA_PORT_DIR}/sqlite_vita.c")
++  target_compile_definitions(tdsqlite PRIVATE SQLITE_OS_OTHER=1 SQLITE_MAX_MMAP_SIZE=0)
++endif()
+diff --git a/tddb/td/db/binlog/Binlog.cpp b/tddb/td/db/binlog/Binlog.cpp
+index e6d1859..b89eb2f 100644
+--- a/tddb/td/db/binlog/Binlog.cpp
++++ b/tddb/td/db/binlog/Binlog.cpp
+@@ -674,6 +674,12 @@ void Binlog::do_reindex() {
+     need_sync_ = false;
+   }
+ 
++  // Vita does not require POSIX rename semantics for an open destination.
++  // Close the fully drained temporary file before replacement. This also makes
++  // Vita3K's buffered host writes visible despite its stubbed sceIoSyncByFd.
++#if TD_VITA
++  fd_.close();
++#endif
+   // finish_reindex
+   auto status = unlink(path_);
+   LOG_IF(FATAL, status.is_error()) << "Failed to unlink old binlog: " << status;
+@@ -681,6 +687,15 @@ void Binlog::do_reindex() {
+   status = rename(new_path, path_);
+   FileFd::remove_local_lock(new_path);  // now we can release local lock for temporary file
+   LOG_IF(FATAL, status.is_error()) << "Failed to rename binlog: " << status;
++#if TD_VITA
++  // Keep the original process-local path lock held throughout replacement.
++  // Reopen without reacquiring it; restore the write offset and flow reader.
++  auto reopened = FileFd::open(path_, FileFd::Write);
++  LOG_IF(FATAL, reopened.is_error()) << "Failed to reopen binlog: " << reopened.error();
++  fd_ = BufferedFdBase<FileFd>(reopened.move_as_ok());
++  fd_.seek(fd_size_).ensure();
++  fd_.set_output_reader(encryption_type_ == EncryptionType::None ? &buffer_reader_ : byte_flow_sink_.get_output());
++#endif
+ 
+   auto finish_time = Clocks::monotonic();
+   auto finish_size = fd_size_;
+diff --git a/tdutils/td/utils/port/FileFd.cpp b/tdutils/td/utils/port/FileFd.cpp
+index 8927647..c4f727d 100644
+--- a/tdutils/td/utils/port/FileFd.cpp
++++ b/tdutils/td/utils/port/FileFd.cpp
+@@ -449,6 +449,14 @@ Status FileFd::lock(LockFlags flags, const string &path, int32 max_tries) {
+     }
+   };
+ 
++#if TD_VITA
++  // Vita runs one foreground game instance; this port permits exactly one
++  // TDLib engine in that process. Retain TDLib's mutex-protected local lock.
++  // There is no cross-process POSIX locking on Vita and no SQLite file VFS.
++  if (path.empty()) return Status::Error("Vita binlog locking requires a path");
++  if (flags == LockFlags::Write) need_local_unlock = false;
++  return Status::OK();
++#else
+ #if TD_PORT_POSIX
+   auto native_fd = get_native_fd().fd();
+ #elif TD_PORT_WINDOWS
+@@ -514,6 +522,7 @@ Status FileFd::lock(LockFlags flags, const string &path, int32 max_tries) {
+     need_local_unlock = false;
+   }
+   return Status::OK();
++#endif
+ }
+ 
+ void FileFd::remove_local_lock(const string &path) {
+diff --git a/tdutils/td/utils/port/IPAddress.cpp b/tdutils/td/utils/port/IPAddress.cpp
+index 8a08d34..95541c3 100644
+--- a/tdutils/td/utils/port/IPAddress.cpp
++++ b/tdutils/td/utils/port/IPAddress.cpp
+@@ -303,7 +303,7 @@ void IPAddress::init_ipv6_any() {
+   is_valid_ = true;
+   std::memset(&ipv6_addr_, 0, sizeof(ipv6_addr_));
+   ipv6_addr_.sin6_family = AF_INET6;
+-  ipv6_addr_.sin6_addr = in6addr_any;
++  ipv6_addr_.sin6_addr = in6_addr{};
+   ipv6_addr_.sin6_port = 0;
+ }
+ 
+@@ -435,7 +435,13 @@ Status IPAddress::init_host_port(CSlice host, CSlice port, bool prefer_ipv6) {
+ #if TD_WINDOWS
+     return OS_SOCKET_ERROR("Failed to resolve host");
+ #else
+-    return Status::Error(PSLICE() << "Failed to resolve host: " << gai_strerror(err));
++    return Status::Error(PSLICE() << "Failed to resolve host: " <<
++#if TD_VITA
++        err
++#else
++        gai_strerror(err)
++#endif
++    );
+ #endif
+   }
+   SCOPE_EXIT {
+diff --git a/tdutils/td/utils/port/MemoryMapping.cpp b/tdutils/td/utils/port/MemoryMapping.cpp
+index 29ac027..a2f8dbc 100644
+--- a/tdutils/td/utils/port/MemoryMapping.cpp
++++ b/tdutils/td/utils/port/MemoryMapping.cpp
+@@ -14,7 +14,7 @@
+ // anonymous maps,
+ // huge pages?
+ 
+-#if TD_WINDOWS
++#if TD_WINDOWS || TD_VITA
+ #else
+ #include <sys/mman.h>
+ #include <unistd.h>
+@@ -38,7 +38,7 @@ class MemoryMapping::Impl {
+   int64 offset_;
+ };
+ 
+-#if !TD_WINDOWS
++#if !TD_WINDOWS && !TD_VITA
+ static Result<int64> get_page_size() {
+   static Result<int64> page_size = []() -> Result<int64> {
+     auto page_size = sysconf(_SC_PAGESIZE);
+@@ -56,7 +56,7 @@ Result<MemoryMapping> MemoryMapping::create_anonymous(const MemoryMapping::Optio
+ }
+ 
+ Result<MemoryMapping> MemoryMapping::create_from_file(const FileFd &file_fd, const MemoryMapping::Options &options) {
+-#if TD_WINDOWS
++#if TD_WINDOWS || TD_VITA
+   return Status::Error("Unsupported yet");
+ #else
+   if (file_fd.empty()) {
+diff --git a/tdutils/td/utils/port/Stat.cpp b/tdutils/td/utils/port/Stat.cpp
+index 98b96d8..3fbf391 100644
+--- a/tdutils/td/utils/port/Stat.cpp
++++ b/tdutils/td/utils/port/Stat.cpp
+@@ -70,7 +70,9 @@ using void_t = typename voider<T...>::type;
+ template <class T, class = void>
+ struct TimeNsec {
+   static std::pair<int, int> get(const T &) {
++#if !TD_VITA
+     T().warning("Platform lacks support of precise access/modification file times, comment this line to continue");
++#endif
+     return {0, 0};
+   }
+ };
+diff --git a/tdutils/td/utils/port/config.h b/tdutils/td/utils/port/config.h
+index 901576f..f4f2c33 100644
+--- a/tdutils/td/utils/port/config.h
++++ b/tdutils/td/utils/port/config.h
+@@ -16,7 +16,10 @@
+   #define TD_PORT_POSIX 1
+ #endif
+ 
+-#if TD_LINUX || TD_ANDROID || TD_TIZEN
++#if TD_VITA
++  #define TD_POLL_SELECT 1
++  #define TD_EVENTFD_BSD 1
++#elif TD_LINUX || TD_ANDROID || TD_TIZEN
+   #define TD_POLL_EPOLL 1
+   #define TD_EVENTFD_LINUX 1
+ #elif TD_FREEBSD || TD_OPENBSD || TD_NETBSD
+diff --git a/tdutils/td/utils/port/detail/EventFdBsd.cpp b/tdutils/td/utils/port/detail/EventFdBsd.cpp
+index aed4743..2f831de 100644
+--- a/tdutils/td/utils/port/detail/EventFdBsd.cpp
++++ b/tdutils/td/utils/port/detail/EventFdBsd.cpp
+@@ -18,6 +18,10 @@ char disable_linker_warning_about_empty_file_event_fd_bsd_cpp TD_UNUSED;
+ #include "td/utils/Slice.h"
+ 
+ #include <cerrno>
++#if TD_VITA
++#include "vita_socketpair.h"
++#define socketpair vita_socketpair
++#endif
+ 
+ #include <fcntl.h>
+ #include <poll.h>
+diff --git a/tdutils/td/utils/port/detail/NativeFd.cpp b/tdutils/td/utils/port/detail/NativeFd.cpp
+index 8166256..fc7e7fe 100644
+--- a/tdutils/td/utils/port/detail/NativeFd.cpp
++++ b/tdutils/td/utils/port/detail/NativeFd.cpp
+@@ -184,7 +184,9 @@ NativeFd::Socket NativeFd::socket() const {
+ }
+ 
+ Status NativeFd::set_is_blocking(bool is_blocking) const {
+-#if TD_PORT_POSIX
++#if TD_VITA
++  return set_is_blocking_unsafe(is_blocking);
++#elif TD_PORT_POSIX
+   auto old_flags = fcntl(fd(), F_GETFL);
+   if (old_flags == -1) {
+     return OS_SOCKET_ERROR("Failed to get socket flags");
+@@ -201,7 +203,10 @@ Status NativeFd::set_is_blocking(bool is_blocking) const {
+ }
+ 
+ Status NativeFd::set_is_blocking_unsafe(bool is_blocking) const {
+-#if TD_PORT_POSIX
++#if TD_VITA
++  int enabled = is_blocking ? 0 : 1;
++  if (setsockopt(fd(), SOL_SOCKET, SO_NONBLOCK, &enabled, sizeof(enabled)) != 0) {
++#elif TD_PORT_POSIX
+   if (fcntl(fd(), F_SETFL, is_blocking ? 0 : O_NONBLOCK) == -1) {
+ #elif TD_PORT_WINDOWS
+   u_long mode = is_blocking;
+@@ -213,7 +218,9 @@ Status NativeFd::set_is_blocking_unsafe(bool is_blocking) const {
+ }
+ 
+ Status NativeFd::duplicate(const NativeFd &to) const {
+-#if TD_PORT_POSIX
++#if TD_VITA
++  return Status::Error("File descriptor duplication unavailable on this Vita runtime");
++#elif TD_PORT_POSIX
+   CHECK(*this);
+   CHECK(to);
+   if (dup2(fd(), to.fd()) == -1) {
+diff --git a/tdutils/td/utils/port/detail/ThreadPthread.cpp b/tdutils/td/utils/port/detail/ThreadPthread.cpp
+index 3317ad9..9118494 100644
+--- a/tdutils/td/utils/port/detail/ThreadPthread.cpp
++++ b/tdutils/td/utils/port/detail/ThreadPthread.cpp
+@@ -101,6 +101,17 @@ void ThreadPthread::send_real_time_signal(id thread_id, int real_time_signal_num
+ 
+ int ThreadPthread::do_pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void *),
+                                      void *arg) {
++#if TD_VITA
++  if (attr == nullptr) {
++    pthread_attr_t vita_attr;
++    CHECK(pthread_attr_init(&vita_attr) == 0);
++    CHECK(pthread_attr_setstacksize(&vita_attr, 512 * 1024) == 0);
++    int result = pthread_create(thread, &vita_attr, start_routine, arg);
++    pthread_attr_destroy(&vita_attr);
++    CHECK(result == 0);
++    return result;
++  }
++#endif
+   return pthread_create(thread, attr, start_routine, arg);
+ }
+ 
+diff --git a/tdutils/td/utils/port/platform.h b/tdutils/td/utils/port/platform.h
+index 20894ec..c05c170 100644
+--- a/tdutils/td/utils/port/platform.h
++++ b/tdutils/td/utils/port/platform.h
+@@ -9,7 +9,9 @@
+ // clang-format off
+ 
+ /*** Platform macros ***/
+-#if defined(_WIN32) || defined(_WINDOWS) // _WINDOWS is defined by CMake
++#if defined(__vita__)
++  #define TD_VITA 1
++#elif defined(_WIN32) || defined(_WINDOWS) // _WINDOWS is defined by CMake
+   #if defined(__cplusplus_winrt)
+     #define TD_WINRT 1
+   #endif
+diff --git a/tdutils/td/utils/port/signals.cpp b/tdutils/td/utils/port/signals.cpp
+index 880bb35..119e81f 100644
+--- a/tdutils/td/utils/port/signals.cpp
++++ b/tdutils/td/utils/port/signals.cpp
+@@ -1,3 +1,5 @@
++#include "td/utils/port/config.h"
++#if !TD_VITA
+ //
+ // Copyright Aliaksei Levin (levlam@telegram.org), Arseny Smirnov (arseny30@gmail.com) 2014-2026
+ //
+@@ -342,3 +344,19 @@ Status set_default_failure_signal_handler() {
+ }
+ 
+ }  // namespace td
++
++#else
++#include "td/utils/port/signals.h"
++#include <unistd.h>
++namespace td {
++Status setup_signals_alt_stack() { return Status::Error("POSIX signal stacks unavailable on Vita"); }
++Status set_signal_handler(SignalType, void (*)(int)) { return Status::Error("POSIX signals unavailable on Vita"); }
++Status set_extended_signal_handler(SignalType, void (*)(int, void*)) { return Status::Error("POSIX signals unavailable on Vita"); }
++Status set_real_time_signal_handler(int, void (*)(int)) { return Status::Error("POSIX signals unavailable on Vita"); }
++Status ignore_signal(SignalType) { return Status::Error("POSIX signals unavailable on Vita"); }
++void signal_safe_write(Slice data, bool) { auto ignored = ::write(2, data.data(), data.size()); (void)ignored; }
++void signal_safe_write_signal_number(int, bool) {}
++void signal_safe_write_pointer(void*, bool) {}
++Status set_default_failure_signal_handler() { return Status::Error("POSIX signals unavailable on Vita"); }
++}
++#endif
+diff --git a/tdutils/td/utils/port/uname.cpp b/tdutils/td/utils/port/uname.cpp
+index 0e62df7..33582e8 100644
+--- a/tdutils/td/utils/port/uname.cpp
++++ b/tdutils/td/utils/port/uname.cpp
+@@ -29,7 +29,13 @@
+ #include <sys/sysctl.h>
+ #include <sys/types.h>
+ #endif
++#if TD_VITA
++extern "C" {
+ #include <sys/utsname.h>
++}
++#else
++#include <sys/utsname.h>
++#endif
+ #endif
+ 
+ #endif
+diff --git a/tdutils/td/utils/port/user.cpp b/tdutils/td/utils/port/user.cpp
+index 10430fc..3f05699 100644
+--- a/tdutils/td/utils/port/user.cpp
++++ b/tdutils/td/utils/port/user.cpp
+@@ -9,7 +9,7 @@
+ #include "td/utils/port/config.h"
+ #include "td/utils/port/platform.h"
+ 
+-#if TD_PORT_POSIX
++#if TD_PORT_POSIX && !TD_VITA
+ #include "td/utils/SliceBuilder.h"
+ 
+ #include <grp.h>
+@@ -24,7 +24,7 @@
+ namespace td {
+ 
+ Status change_user(CSlice username, CSlice groupname) {
+-#if TD_PORT_POSIX
++#if TD_PORT_POSIX && !TD_VITA
+   passwd *pw = getpwnam(username.c_str());
+   if (pw == nullptr) {
+     return OS_ERROR(PSTRING() << "Can't find the user '" << username << "' to switch to");

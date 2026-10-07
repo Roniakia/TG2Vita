@@ -1,0 +1,2 @@
+#pragma once
+#define VITA_TG_VERSION "@PROJECT_VERSION@"

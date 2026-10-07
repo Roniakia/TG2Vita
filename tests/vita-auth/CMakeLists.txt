@@ -1,0 +1,23 @@
+cmake_minimum_required(VERSION 3.16)
+get_filename_component(APP_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../.." ABSOLUTE)
+set(CMAKE_TOOLCHAIN_FILE "${APP_ROOT}/cmake/vita-toolchain.cmake")
+project(vita_auth_smoke LANGUAGES CXX)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+include("${VITASDK}/share/vita.cmake")
+set(VITA_MAKE_FSELF "${APP_ROOT}/scripts/vita-host-tool.sh;vita-make-fself")
+set(VITA_PACK_VPK "${APP_ROOT}/scripts/vita-host-tool.sh;vita-pack-vpk")
+set(TDLIB_SOURCE_DIR "${APP_ROOT}/.deps/tdlib" CACHE PATH "Pinned source" FORCE)
+set(TDLIB_BUILD_DIR "${APP_ROOT}/build/tdlib-clang" CACHE PATH "Vita TDLib" FORCE)
+include("${APP_ROOT}/cmake/tdlib.cmake")
+add_executable(vita_auth_smoke main.cpp "${APP_ROOT}/src/telegram/auth.cpp")
+target_compile_definitions(vita_auth_smoke PRIVATE VITA_TG_AUTH_TEST_DIAGNOSTICS)
+target_compile_features(vita_auth_smoke PRIVATE cxx_std_17)
+target_include_directories(vita_auth_smoke PRIVATE "${APP_ROOT}/src" "${APP_ROOT}/.deps/jansson-2.15.1/src" "${APP_ROOT}/build/build-jansson/include")
+target_link_options(vita_auth_smoke PRIVATE -Wl,--gc-sections)
+target_link_libraries(vita_auth_smoke PRIVATE vita_tdlib "${APP_ROOT}/build/build-jansson/lib/libjansson.a" vita2d
+ SceGxm_stub SceDisplay_stub SceSysmodule_stub ScePgf_stub SceCommonDialog_stub SceAppMgr_stub
+ SceNet_stub SceNetCtl_stub SceIofilemgr_stub SceKernelThreadMgr_stub png jpeg z m)
+vita_create_self(vita_auth_smoke.self vita_auth_smoke)
+vita_create_vpk(vita_auth_smoke.vpk VTGC00003 vita_auth_smoke.self VERSION "00.10" NAME "Vita TG Auth Tests")
+
+target_include_directories(vita_auth_smoke PRIVATE "${APP_ROOT}/build/generated")

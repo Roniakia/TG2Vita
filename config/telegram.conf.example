@@ -1,0 +1,8 @@
+# Get application credentials from https://my.telegram.org/apps
+# Copy this file to secrets/telegram.conf and fill it in locally.
+# Default builds embed app credentials and always select production.
+# use_test_dc applies only to config-only development builds.
+# Application credentials identify the app; they are not a user login/session.
+api_id=0
+api_hash=
+use_test_dc=true
