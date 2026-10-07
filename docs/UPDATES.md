@@ -6,7 +6,9 @@ Version 0.6.1 checks once in the background when the app opens. A banner
 notifies you when a newer version is available; Triangle opens App updates after
 sign-in. Settings → App updates also remains available. Cross checks the latest published
 non-prerelease release; another Cross downloads a newer version. The verified
-file is saved as `ux0:download/TG2Vita-vX.Y.Z.vpk`. Exit with Start and install
+file is saved as `ux0:download/TG2Vita-vX.Y.Z.vpk` when writable, otherwise
+`ux0:data/vita-tg/download/TG2Vita-vX.Y.Z.vpk`. The update screen shows
+the actual saved path. Exit with Start and install
 that file in VitaShell. Installation retains the app's separate data/session
 folder. Circle cancels a transfer; exiting joins the updater before network
 shutdown. Checking does not require a GitHub account/token on Vita. Startup failures stay

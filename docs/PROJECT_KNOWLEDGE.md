@@ -651,3 +651,18 @@ accepts that operation on valid sockets (getsockopt SO_TYPE); other commands
 fail. Vita has no exec descriptor inheritance. Curl nonblocking remains native
 SO_NONBLOCK; TLS verification is preserved. No installed SDK modification or
 global fcntl override. Hardware resolution still needs user confirmation.
+
+## Hardware updater discovery confirmed — 2026-10-07
+
+The user confirms the app now sees GitHub releases after the CLOEXEC fix in
+0.6.2-beta.3. This confirms discovery only, not VPK download or installation.
+0.6.2-beta.4 is a version-only test package for the next download check. Keep
+the updater feature in beta until the user confirms the complete feature.
+
+## Update download folder fallback — 2026-10-07
+
+The user reports "Cannot write download directory" after successful discovery.
+0.6.2-beta.5 first tries ux0:download, then ux0:data/vita-tg/download without
+changing safe SELF permissions. It displays the actual saved path and errno
+if both paths fail. Tests cover primary-folder failure, fallback and both failing.
+The exact hardware filesystem error is not yet known; resolution needs retesting.

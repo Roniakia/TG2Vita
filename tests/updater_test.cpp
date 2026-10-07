@@ -25,7 +25,7 @@ void wait(update::Updater& u) { for(int n=0;n<500 && u.state().busy;++n) std::th
 }
 extern "C" {
 int sceKernelGetRandomNumber(void* data,std::size_t n) {std::memset(data,42,n);return 0;}
-int sceIoMkdir(const char* p,int) {std::filesystem::create_directories(p);return 0;}
+int sceIoMkdir(const char* p,int) {std::error_code error;std::filesystem::create_directories(p,error);return error ? -1 : 0;}
 CURLcode curl_global_init(long) {return CURLE_OK;}
 void curl_global_cleanup() {}
 CURL* curl_easy_init() {return reinterpret_cast<CURL*>(new Handle);}
@@ -70,6 +70,15 @@ int main() {
     const std::string path="ux0:download/TG2Vita-v99.0.0.vpk";
     std::ifstream file(path);std::string saved((std::istreambuf_iterator<char>(file)),{});assert(saved==payload);
     u.check();wait(u);payload[0]='X';u.download();wait(u);assert(u.state().available && !std::filesystem::exists(path+".part"));
+    // An unwritable primary folder must fall back to the app's data folder.
+    payload[0]='v';u.check();wait(u);
+    std::filesystem::remove_all("ux0:download");std::ofstream("ux0:download")<<"blocked directory";
+    u.download();wait(u);assert(u.state().status=="Update downloaded");
+    assert(std::filesystem::exists("ux0:data/vita-tg/download/TG2Vita-v99.0.0.vpk"));
+    assert(u.state().detail.find("ux0:data/vita-tg/download/")!=std::string::npos);
+    u.check();wait(u);std::filesystem::remove_all("ux0:data/vita-tg/download");std::ofstream("ux0:data/vita-tg/download")<<"blocked fallback";
+    u.download();wait(u);assert(u.state().status=="Cannot write update file" && u.state().available);
+    assert(u.state().detail.find("errno")!=std::string::npos);
     response=CURLE_COULDNT_CONNECT;u.check();wait(u);assert(u.state().detail.find("curl 7:")!=std::string::npos && u.state().detail.find("socket 111")!=std::string::npos && u.state().detail.find("connection refused")!=std::string::npos && !u.state().available);
     response=CURLE_OK;slow=true;u.check();u.cancel();assert(u.state().status=="Update check canceled");slow=false;
     option_failure=CURLE_UNKNOWN_OPTION;auto before=requests;u.check();wait(u);assert(requests==before && u.state().detail.find("curl 48:")!=std::string::npos);

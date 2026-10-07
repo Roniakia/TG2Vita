@@ -6,6 +6,8 @@
 #include <psp2/kernel/rng.h>
 #include <psp2/io/stat.h>
 #include <cstdio>
+#include <cerrno>
+#include <cstring>
 #include <functional>
 
 namespace update {
@@ -144,11 +146,21 @@ void Updater::run(bool downloading) {
             if (!(channel==Channel::Beta ? parse_releases(t.body,VITA_TG_VERSION,r,error) : parse_release(t.body,VITA_TG_VERSION,r,error))) { finish(error); return; }
             release_=std::move(r); finish("Version "+release_.version+" available","Cross: download VPK",true); return;
         }
-        sceIoMkdir("ux0:download",0777);
-        const auto path="ux0:download/TG2Vita-"+release_.version+".vpk";
-        const auto partial=path+".part";
-        t.limit=release_.size; t.file=std::fopen(partial.c_str(),"wb");
-        if (!t.file) { finish("Cannot write download directory",{},true); return; }
+        // Safe Vita applications may not be allowed to write outside ux0:data.
+        // Keep the public download folder first, then use our writable app data.
+        std::string path,partial,storage_error;
+        for (const char* directory : {"ux0:download", "ux0:data/vita-tg/download"}) {
+            sceIoMkdir(directory,0700);
+            path=std::string(directory)+"/TG2Vita-"+release_.version+".vpk";
+            partial=path+".part";
+            t.file=std::fopen(partial.c_str(),"wb");
+            if(t.file) break;
+            const int code=errno;
+            if(!storage_error.empty()) storage_error+="\n";
+            storage_error+=std::string(directory)+": errno "+std::to_string(code)+" ("+std::strerror(code)+")";
+        }
+        t.limit=release_.size;
+        if (!t.file) { finish("Cannot write update file",storage_error,true); return; }
         SHA256_Init(&t.hash);
         bool ok=fetch(release_.url,t,status,transport_error);
         if (std::fclose(t.file)!=0) ok=false;

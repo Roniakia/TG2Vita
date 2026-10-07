@@ -12,7 +12,7 @@ set(VITA_PACK_VPK "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vita-host-tool.sh;vita-pa
 set(VITA_APP_NAME "Vita TG")
 set(VITA_TITLEID "VTGC00001" CACHE STRING "Development title ID (nine characters)")
 set(VITA_VERSION "00.62")
-set(VITA_TG_VERSION_SUFFIX "-beta.4" CACHE STRING "Release version suffix; empty after user acceptance")
+set(VITA_TG_VERSION_SUFFIX "-beta.5" CACHE STRING "Release version suffix; empty after user acceptance")
 configure_file(src/version.hpp.in generated/version.hpp @ONLY)
 include(cmake/tdlib.cmake)
 include(cmake/curl-vita.cmake)

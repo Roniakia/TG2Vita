@@ -1,3 +1,3 @@
-Beta update-download test build. Version bumped from 0.6.2-beta.3 to 0.6.2-beta.4 so the in-app Beta channel can discover and download a newer package. Application behavior is unchanged.
+Adds a writable app-data fallback for VPK downloads. The updater first tries ux0:download/; if unavailable, it uses ux0:data/vita-tg/download/. The update screen shows the saved path for installation through VitaShell. If both locations fail, the filesystem errors are displayed and the download can be retried.
 
-The user confirms GitHub releases are now visible with the CLOEXEC compatibility fix. VPK download and installation still need hardware confirmation. After downloading, exit with Start and install ux0:download/TG2Vita-v0.6.2-beta.4.vpk using VitaShell.
+Package size/SHA-256 verification and partial-file cleanup are retained. This beta needs real-Vita download confirmation.
