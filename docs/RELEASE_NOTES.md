@@ -1,3 +1,3 @@
-Fixes the identified updater socket-opening failure: legacy installed libc returns ENOSYS for curl’s CLOEXEC request. A private copy of curl redirects that request to a Vita compatibility function that validates the socket. The installed SDK and TDLib file handling are unchanged; nonblocking sockets and TLS verification remain enabled.
+Beta update-download test build. Version bumped from 0.6.2-beta.3 to 0.6.2-beta.4 so the in-app Beta channel can discover and download a newer package. Application behavior is unchanged.
 
-This beta passes compatibility tests and build/package checks, but needs confirmation on Vita. Stable/Beta selection, startup checks and detailed errors are retained.
+The user confirms GitHub releases are now visible with the CLOEXEC compatibility fix. VPK download and installation still need hardware confirmation. After downloading, exit with Start and install ux0:download/TG2Vita-v0.6.2-beta.4.vpk using VitaShell.
