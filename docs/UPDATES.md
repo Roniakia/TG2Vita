@@ -86,3 +86,9 @@ of login, selects IPv4/HTTP 1.1 and reports curl error codes. The original devic
 failure is not yet diagnosed or confirmed fixed. Release 0.6.1 builds with the installed SDK;
 archive, indexed artwork and relative-veneer checks pass. Hardware HTTPS, GitHub
 redirects, cancellation and manual installation still require a real-Vita test.
+
+## Hardware confirmation — 2026-10-07
+
+The user confirmed the beta.5 → beta.6 updater download test works on Vita.
+Release discovery and downloading are accepted. The exact saved folder and
+manual installation of the downloaded VPK were not separately reported.

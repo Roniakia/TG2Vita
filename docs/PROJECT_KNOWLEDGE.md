@@ -666,3 +666,15 @@ The user reports "Cannot write download directory" after successful discovery.
 changing safe SELF permissions. It displays the actual saved path and errno
 if both paths fail. Tests cover primary-folder failure, fallback and both failing.
 The exact hardware filesystem error is not yet known; resolution needs retesting.
+
+## Hardware updater download accepted — 2026-10-07
+
+After publishing 0.6.2-beta.6 for a download test from beta.5, the user reports
+"It works!". Treat release discovery and the updater download flow as accepted
+on the real Vita, including the folder fallback introduced in beta.5. The user
+did not separately confirm installing the downloaded VPK or identify which
+folder was used. Do not claim automatic installation or completed VitaShell
+installation. This acceptance permits a future stable updater release; no
+GitHub release was promoted by this knowledge update.
+
+The user explicitly requested publishing stable 0.6.2 after this acceptance.

@@ -1,1 +1,5 @@
-Version-only beta build to test downloading an update from 0.6.2-beta.5. The download folder fallback and application behavior are unchanged. Select Beta in Settings → App updates, check, and download. The app displays the saved VPK path for installation with VitaShell.
+Stable updater release following successful real-Vita discovery and download testing. Checks automatically on startup and notifies when a newer version is available. Settings → App updates offers a saved Stable/Beta channel choice.
+
+Verified VPK downloads use ux0:download/ when writable, otherwise ux0:data/vita-tg/download/. The app shows the saved path; exit with Start and install using VitaShell. Includes the Vita curl CLOEXEC compatibility fix, verified HTTPS, bounded downloads, SHA-256 checks and detailed errors.
+
+Automatic installation and message sending remain unimplemented.
